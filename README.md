@@ -19,6 +19,7 @@ Scipy
 │   ├── dataset_lits_train.py 
 │   ├── dataset_lits_val.py
 │   ├── dataset_lits_test.py
+|   ├── generate_dataset.py    # 生成npz data，accerate traing
 │   └── transforms.py 
 ├── models           # Model design
 │   ├── nn
@@ -39,58 +40,9 @@ Scipy
 ├── train.py         # Standard training code
 └── config.py        # Configuration information for training and testing
 ```
-## Quickly Start
-### 1) LITS2017 dataset preprocessing: 
-1. Download dataset from google drive: [Liver Tumor Segmentation Challenge.](https://drive.google.com/drive/folders/0B0vscETPGI1-Q1h1WFdEM2FHSUE)  
-Or from my share: https://pan.baidu.com/s/1WgP2Ttxn_CV-yRT4UyqHWw 
-Extraction code：**hfl8** (The dataset consists of two parts: batch1 and batch2)  
-2. Then you need decompress and merge batch1 and batch2 into one folder. It is recommended to use 20 samples(27\~46) of the LiTS dataset as the testset
- and 111 samples(0\~26 and 47\~131) as the trainset. Please put the volume data and segmentation labels of trainset and testset into different local folders, 
-such as:  
-```
-raw_dataset:
-    ├── test  # 20 samples(27~46) 
-    │   ├── ct
-    │   │   ├── volume-27.nii
-    │   │   ├── volume-28.nii
-    |   |   |—— ...
-    │   └── label
-    │       ├── segmentation-27.nii
-    │       ├── segmentation-28.nii
-    |       |—— ...
-    │       
-    ├── train # 111 samples(0\~26 and 47\~131)
-    │   ├── ct
-    │   │   ├── volume-0.nii
-    │   │   ├── volume-1.nii
-    |   |   |—— ...
-    │   └── label
-    │       ├── segmentation-0.nii
-    │       ├── segmentation-1.nii
-    |       |—— ...
-```
-3. Finally, you need to change the root path of the volume data and segmentation labels in `./preprocess_LiTS.py`, such as:
-```
-    row_dataset_path = './raw_dataset/train/'  # path of origin dataset
-    fixed_dataset_path = './fixed_data/'  # path of fixed(preprocessed) dataset
-```   
-4. Run `python ./preprocess_LiTS.py`   
-If nothing goes wrong, you can see the following files in the dir `./fixed_data`
-```angular2
-│—— train_path_list.txt
-│—— val_path_list.txt
-│
-|—— ct
-│       volume-0.nii
-│       volume-1.nii
-│       volume-2.nii
-│       ...
-└─ label
-        segmentation-0.nii
-        segmentation-1.nii
-        segmentation-2.nii
-        ...
-```  
+---
+### 1) generate_data
+       use generate_dataset.py to generate *.npz, this can quick read data.
 ---
 ### 2) Training 3DUNet
 1. Firstly, you should change the some parameters in `config.py`,especially, please set `--dataset_path` to `./fixed_data`  
