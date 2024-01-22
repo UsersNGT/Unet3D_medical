@@ -40,9 +40,9 @@ Scipy
 ├── train.py         # Standard training code
 └── config.py        # Configuration information for training and testing
 ```
-##quick start
+## quick start
 ### 1) generate_data
-       use 'generate_dataset.py' to generate *.npz, this can quick read data.
+use 'generate_dataset.py' to generate *.npz, this can quick read data.
 ---
 ### 2) Training 3DUNet
 1. Firstly, you should change the some parameters in `config.py`,especially, please set `--dataset_path` to `./fixed_data`  
