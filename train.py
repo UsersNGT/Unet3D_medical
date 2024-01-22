@@ -7,7 +7,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import config
 
-from models import UNet, ResUNet , KiUNet_min, SegNet
+from models import UNet, ResUNet, Unet3D
 
 from utils import logger, weights_init, metrics, common, loss
 import os
@@ -32,53 +32,61 @@ def val(model, val_loader, loss_func, n_labels):
     if n_labels==3: val_log.update({'Val_dice_tumor': val_dice.avg[2]})
     return val_log
 
-def train(model, train_loader, optimizer, loss_func, n_labels, alpha):
+def train(model, train_loader, optimizer, loss_dice, loss_bce, alpha):
     print("=======Epoch:{}=======lr:{}".format(epoch,optimizer.state_dict()['param_groups'][0]['lr']))
     model.train()
-    train_loss = metrics.LossAverage()
-    train_dice = metrics.DiceAverage(n_labels)
+    # train_loss = metrics.LossAverage()
+    # train_dice = metrics.DiceAverage(n_labels)
 
     for idx, (data, target) in tqdm(enumerate(train_loader),total=len(train_loader)):
-        data, target = data.float(), target.long()
-        target = common.to_one_hot_3d(target,n_labels)
+        data, target = data.float(), target.long()  # b*1*128*128*128 b*128*128*128
+        # target = common.to_one_hot_3d(target,n_labels)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
 
-        output = model(data)
-        loss0 = loss_func(output[0], target)
-        loss1 = loss_func(output[1], target)
-        loss2 = loss_func(output[2], target)
-        loss3 = loss_func(output[3], target)
+        output = model(data)  # b*1*128*128*128
+        
+        loss0 = loss_dice(output, target)
+        loss1 = loss_bce(output, target.float())
+        loss1 = loss1.mean()
+        # loss2 = loss_func(output[2], target)
+        # loss3 = loss_func(output[3], target)
 
-        loss = loss3  +  alpha * (loss0 + loss1 + loss2)
+        #loss = loss3  +  alpha * (loss0 + loss1 + loss2)
+        loss = loss0 + 2 * loss1
         loss.backward()
         optimizer.step()
         
-        train_loss.update(loss3.item(),data.size(0))
-        train_dice.update(output[3], target)
+        # train_loss.update(loss3.item(),data.size(0))
+        # train_dice.update(output[3], target)
 
-    val_log = OrderedDict({'Train_Loss': train_loss.avg, 'Train_dice_liver': train_dice.avg[1]})
-    if n_labels==3: val_log.update({'Train_dice_tumor': train_dice.avg[2]})
-    return val_log
+    # train_log = OrderedDict({'Train_Loss': train_loss.avg, 'Train_dice_liver': train_dice.avg[1]})
+    train_log = OrderedDict({'Train_Loss': "%.4f"%loss.item(), 'Train_dice_loss': "%.4f"%loss0.item(), 'Train_bce_loss':"%.4f"%loss1.item()})
+    #if n_labels==3: val_log.update({'Train_dice_tumor': train_dice.avg[2]})
+    return train_log
 
 if __name__ == '__main__':
     args = config.args
     save_path = os.path.join('./experiments', args.save)
+    save_path_model = os.path.join(save_path, "model")
     if not os.path.exists(save_path): os.mkdir(save_path)
+    if not os.path.exists(save_path_model): os.mkdir(save_path_model)
     device = torch.device('cpu' if args.cpu else 'cuda')
+    print("using %s to train model" %device)
     # data info
     train_loader = DataLoader(dataset=Train_Dataset(args),batch_size=args.batch_size,num_workers=args.n_threads, shuffle=True)
-    val_loader = DataLoader(dataset=Val_Dataset(args),batch_size=1,num_workers=args.n_threads, shuffle=False)
+    #val_loader = DataLoader(dataset=Val_Dataset(args),batch_size=1,num_workers=args.n_threads, shuffle=False)
 
     # model info
-    model = ResUNet(in_channel=1, out_channel=args.n_labels,training=True).to(device)
+    model = Unet3D(in_ch=1, channels=32).to(device)
 
     model.apply(weights_init.init_model)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    common.print_network(model)
+    #common.print_network(model)
     model = torch.nn.DataParallel(model, device_ids=args.gpu_id)  # multi-GPU
  
-    loss = loss.TverskyLoss()
+    loss_dice = loss.DiceLoss()
+    loss_bce = torch.nn.BCEWithLogitsLoss(reduce=False)
 
     log = logger.Train_Logger(save_path,"train_log")
 
@@ -87,21 +95,22 @@ if __name__ == '__main__':
     alpha = 0.4 # 深监督衰减系数初始值
     for epoch in range(1, args.epochs + 1):
         common.adjust_learning_rate(optimizer, epoch, args)
-        train_log = train(model, train_loader, optimizer, loss, args.n_labels, alpha)
-        val_log = val(model, val_loader, loss, args.n_labels)
-        log.update(epoch,train_log,val_log)
-
+        train_log = train(model, train_loader, optimizer, loss_dice, loss_bce, alpha)
+        # val_log = val(model, val_loader, loss, args.n_labels)
+        #log.update(epoch,train_log,val_log)
+        log.train_update(epoch,train_log)
         # Save checkpoint.
-        state = {'net': model.state_dict(),'optimizer':optimizer.state_dict(),'epoch': epoch}
-        torch.save(state, os.path.join(save_path, 'latest_model.pth'))
-        trigger += 1
-        if val_log['Val_dice_liver'] > best[1]:
-            print('Saving best model')
-            torch.save(state, os.path.join(save_path, 'best_model.pth'))
-            best[0] = epoch
-            best[1] = val_log['Val_dice_liver']
-            trigger = 0
-        print('Best performance at Epoch: {} | {}'.format(best[0],best[1]))
+        if epoch % 5 == 0:
+            state = {'net': model.state_dict(),'optimizer':optimizer.state_dict(),'epoch': epoch}
+            torch.save(state, os.path.join(save_path_model, f'{epoch}_model.pth'))
+            # trigger += 1
+        # if val_log['Val_dice_liver'] > best[1]:
+        #     print('Saving best model')
+        #     torch.save(state, os.path.join(save_path, 'best_model.pth'))
+        #     best[0] = epoch
+        #     best[1] = val_log['Val_dice_liver']
+        #     trigger = 0
+        #print('Best performance at Epoch: {} | {}'.format(best[0],best[1]))
 
         # 深监督系数衰减
         if epoch % 30 == 0: alpha *= 0.8

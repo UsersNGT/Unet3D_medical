@@ -12,14 +12,14 @@ from torchvision.transforms.functional import normalize
 
 #----------------------data augment-------------------------------------------
 class Resize:
-    def __init__(self, scale):
-        # self.shape = [shape, shape, shape] if isinstance(shape, int) else shape
-        self.scale = scale
+    def __init__(self, shape):
+        self.shape = [shape, shape, shape] if isinstance(shape, int) else shape
+        #self.scale = scale
 
     def __call__(self, img, mask):
         img, mask = img.unsqueeze(0), mask.unsqueeze(0).float()
-        img = F.interpolate(img, scale_factor=(1,self.scale,self.scale),mode='trilinear', align_corners=False, recompute_scale_factor=True)
-        mask = F.interpolate(mask, scale_factor=(1,self.scale,self.scale), mode="nearest", recompute_scale_factor=True)
+        img = F.interpolate(img, scale_factor=self.shape,mode='trilinear', align_corners=False, recompute_scale_factor=True)
+        mask = F.interpolate(mask, scale_factor=self.shape, mode="nearest", recompute_scale_factor=True)
         return img[0], mask[0]
 
 class RandomResize:
@@ -42,25 +42,27 @@ class RandomCrop:
     def __init__(self, slices):
         self.slices =  slices
 
-    def _get_range(self, slices, crop_slices):
-        if slices < crop_slices:
+    def _get_range(self, shape, crop_slices):
+        if shape < crop_slices:
             start = 0
         else:
-            start = random.randint(0, slices - crop_slices)
+            start = random.randint(0, shape - crop_slices)
         end = start + crop_slices
-        if end > slices:
-            end = slices
+        if end > shape:
+            end = shape
         return start, end
 
     def __call__(self, img, mask):
 
-        ss, es = self._get_range(mask.size(1), self.slices)
+        zss, zes = self._get_range(mask.size(1), self.slices)
+        yss, yes = self._get_range(mask.size(2), self.slices)
+        xss, xes = self._get_range(mask.size(3), self.slices)
         
         # print(self.shape, img.shape, mask.shape)
-        tmp_img = torch.zeros((img.size(0), self.slices, img.size(2), img.size(3)))
-        tmp_mask = torch.zeros((mask.size(0), self.slices, mask.size(2), mask.size(3)))
-        tmp_img[:,:es-ss] = img[:,ss:es]
-        tmp_mask[:,:es-ss] = mask[:,ss:es]
+        tmp_img = torch.zeros((img.size(0), self.slices, self.slices, self.slices))
+        tmp_mask = torch.zeros((mask.size(0), self.slices, self.slices, self.slices))
+        tmp_img[:, :zes-zss, :yes-yss, :xes-xss] = img[:, zss:zes, yss:yes, xss:xes]
+        tmp_mask[:, :zes-zss, :yes-yss, :xes-xss] = mask[:, zss:zes, yss:yes, xss:xes]
         return tmp_img, tmp_mask
 
 class RandomFlip_LR:
