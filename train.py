@@ -112,12 +112,12 @@ if __name__ == '__main__':
         #     trigger = 0
         #print('Best performance at Epoch: {} | {}'.format(best[0],best[1]))
 
-        # 深监督系数衰减
-        if epoch % 30 == 0: alpha *= 0.8
+        # # 深监督系数衰减
+        # if epoch % 30 == 0: alpha *= 0.8
 
-        # early stopping
-        if args.early_stop is not None:
-            if trigger >= args.early_stop:
-                print("=> early stopping")
-                break
+        # # early stopping
+        # if args.early_stop is not None:
+        #     if trigger >= args.early_stop:
+        #         print("=> early stopping")
+        #         break
         torch.cuda.empty_cache()    

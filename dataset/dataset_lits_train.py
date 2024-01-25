@@ -58,24 +58,6 @@ class Train_Dataset(dataset):
         return ct_array, seg_array
     
 
-    def _simulated_bed_board(self, vol, mask):
-
-        # 模拟U形床板的位置和形状
-        u_shape_width = int(width * 0.6)  # U 形状的宽度
-        u_shape_height = int(height * 0.2)  # U 形状的高度
-        u_shape_depth = int(depth * 0.5)  # U 形状的深度
-        u_shape_top_left = ((width - u_shape_width) // 2, (height - u_shape_height) // 2, (depth - u_shape_depth) // 2)
-        u_shape_bottom_right = (u_shape_top_left[0] + u_shape_width, u_shape_top_left[1] + u_shape_height, u_shape_top_left[2] + u_shape_depth)
-
-        # 创建 U 形状的 mask，模拟床板
-        u_shape_mask = torch.zeros((height, width, depth), dtype=torch.float32)
-        u_shape_mask[u_shape_top_left[1]:u_shape_bottom_right[1], u_shape_top_left[0]:u_shape_bottom_right[0], u_shape_top_left[2]:u_shape_bottom_right[2]] = 1.0
-
-        # 将模拟的床板 mask 应用到头部标签数据中
-        head_label_data = data[1]  # 假设头部标签数据在第二个通道
-        head_label_data *= u_shape_mask.unsqueeze(0)  # 将 mask 应用到头部标签数据中
-
-
 
 
     def _window_array(self, vol):
