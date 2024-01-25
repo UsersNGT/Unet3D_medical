@@ -61,6 +61,6 @@ Please pay attention to path of trained model in `test.py`.
 please set `--test_data_path` and `--test_cut_size` and`--test_cut_stride`.
 After the test, you can get the test results in the corresponding folder:`./experiments/model_name/result`
 
-You can also read my Chinese introduction about this 3DUNet project [here](https://zhuanlan.zhihu.com/p/113318562). However, I no longer update the blog, I will try my best to update the github code.    
+
 If you have any suggestions or questions, 
 welcome to open an issue to communicate with me.  
